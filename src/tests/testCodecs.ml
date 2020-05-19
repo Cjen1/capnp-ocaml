@@ -202,6 +202,28 @@ let test_random_serialize_deserialize _ctx =
     | Result.Error _ ->
         assert false)
 
+let test_random_serialize_deserialize_copyless _ctx =
+  laws_exn "deserialize(fragment(serialize(x))) = x"
+      2000 (Quickcheck.Generator.both message_gen capnp_string_gen) (fun (m, trailing_data) ->
+    let open Capnp.Runtime in
+    let blit dst src ~dst_pos ~len = 
+      BytesLabels.blit ~src ~src_pos:0 ~dst ~dst_pos ~len
+    in 
+    let len, cont = Codecs.serialize_generator m blit in
+    let serialized = Bytes.create len in
+    let _ : int = cont serialized in
+    let serialized = Bytes.unsafe_to_string serialized in
+    let ser_fragments = Codecs.FramedStream.empty `None in
+    let () = fragment serialized (Codecs.FramedStream.add_fragment ser_fragments) in
+    let () = Codecs.FramedStream.add_fragment ser_fragments trailing_data in
+    match Codecs.FramedStream.get_next_frame ser_fragments with
+    | Result.Ok decoded_message ->
+        let () = assert (Codecs.FramedStream.bytes_available ser_fragments =
+          (String.length trailing_data)) in
+        (Capnp.Message.BytesMessage.Message.to_storage m) =
+          (Capnp.Message.BytesMessage.Message.to_storage decoded_message)
+    | Result.Error _ ->
+        assert false)
 
 let test_random_serialize_deserialize_packed _ctx =
   laws_exn "deserialize_unpack(fragment(serialize_pack(x))) = x"
@@ -222,5 +244,6 @@ let random_serialize_suite =
   "random_serialization_deserialization" >::: [
     "serialize_deserialize_message" >:: test_random_serialize_deserialize;
     "serialize_deserialize_packed_message" >:: test_random_serialize_deserialize_packed;
+    "serialize_deserialize_copyless_message" >:: test_random_serialize_deserialize_copyless;
   ]
 

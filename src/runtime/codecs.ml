@@ -324,4 +324,21 @@ let rec serialize ~compression message =
   | `Packing ->
       Packing.pack_string (serialize ~compression:`None message)
 
-
+let serialize_generator message (blit: 'a -> bytes -> dst_pos:int -> len:int -> unit) =
+  let segment_descrs = Message.BytesMessage.Message.to_storage message in
+  let header = make_header segment_descrs in
+  let header_size = String.length header in
+  let segments_size = Message.BytesMessage.Message.total_size message in
+  let total_size = header_size + segments_size in
+  let continuation buf = 
+    blit buf (Bytes.unsafe_of_string header) ~dst_pos:0 ~len:header_size;
+    let (_ : int) = ListLabels.fold_left segment_descrs ~init:header_size
+        ~f:(fun pos descr ->
+            let open Message.BytesMessage in
+            blit buf 
+              descr.Message.segment ~dst_pos:pos ~len:descr.Message.bytes_consumed;
+            pos + descr.Message.bytes_consumed)
+    in
+    total_size
+  in 
+  total_size, continuation

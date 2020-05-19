@@ -93,3 +93,9 @@ val serialize_iter : 'cap Message.BytesMessage.Message.t ->
 val serialize : compression:compression_t ->
   'cap Message.BytesMessage.Message.t -> string
 
+(** [serialize_generator message blit] returns a function which copies the 
+    serialised message into a given buffer via [blit msg ~dst_pos ~len] and
+    the total length of the required buffer. *)
+val serialize_generator : 
+  'cap Message.BytesMessage.Message.t -> ('a -> bytes -> dst_pos:int -> len:int -> unit) ->
+  int * ('a -> int)
