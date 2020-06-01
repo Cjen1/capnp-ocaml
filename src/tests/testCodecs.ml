@@ -206,9 +206,9 @@ let test_random_serialize_deserialize_copyless _ctx =
   laws_exn "deserialize(fragment(serialize(x))) = x"
       2000 (Quickcheck.Generator.both message_gen capnp_string_gen) (fun (m, trailing_data) ->
     let open Capnp.Runtime in
-    let blit dst src ~dst_pos ~len = 
-      BytesLabels.blit ~src ~src_pos:0 ~dst ~dst_pos ~len
-    in 
+    let blit dst src ~offset ~len =
+      BytesLabels.blit ~src ~src_pos:0 ~dst ~dst_pos:offset ~len
+    in
     let len, cont = Codecs.serialize_generator m blit in
     let serialized = Bytes.create len in
     let _ : int = cont serialized in
